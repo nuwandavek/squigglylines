@@ -105,7 +105,7 @@ class SquigglyPlot(SquigglyBase):
       for ele, line in enumerate(self.lines):
         eley = ylim - 8 * ele * dely
         self.draw_annotations([xbounds[0] + delx, xlim], [eley, eley],
-                              [xlim + 1.2 * delx, eley], line._label, c=line._color)
+                              [xlim + 1.2 * delx, eley], line._label, c=line._color, alpha=0.5)
 
   def draw_title(self, title):
     title_font = {'fontname': FONT, 'fontsize': 30}
