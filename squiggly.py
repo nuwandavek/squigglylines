@@ -1,5 +1,12 @@
 import numpy as np
+from datetime import datetime
 from matplotlib import pyplot as plt
+
+FONT = "xkcd Script"
+# FONT = "Humor Sans"
+AXIS_DX_PERC = 1
+BLACK_AXIS = {'c': 'black', 'linewidth': 2}
+GREY_AXIS = {'c': "grey", 'linewidth': 1, 'linestyle': '--', 'alpha': 0.5}
 
 
 class SquigglyBase:
@@ -8,6 +15,8 @@ class SquigglyBase:
     assert (len(x) == len(y)), "len(x) != len(y)"
     self.x = np.array(x)
     self.y = np.array(y)
+    self.xtype = 'val' if isinstance(x[0], (int, float, np.generic)) else 'datetime' if isinstance(x[0], datetime) else 'unknown'
+    self.xx = np.array([t.timestamp() if self.xtype == 'datetime' else t for t in x])
 
   def get_bounds(self, x):
     return min(x), max(x), max(x) - min(x)
@@ -48,24 +57,42 @@ class SquigglyBase:
 
 
 class SquigglyLine(SquigglyBase):
+  def __init__(self, x, y, title=''):
+    self.title = title
+    super().__init__(x, y)
+
   def plot(self):
-    sqx, sqy = self.squigglify(self.x, self.y)
+    sqx, sqy = self.squigglify(self.xx, self.y)
+    xbounds, ybounds = self.get_bounds(self.xx), self.get_bounds(self.y)
+    delx, dely = xbounds[2] * AXIS_DX_PERC / 100, ybounds[2] * AXIS_DX_PERC / 100
 
     plt.figure(figsize=(20, 10))
     plt.plot(sqx, sqy, alpha=0.5, linewidth=3)
-
     for direction in ['x', 'y']:
-      grid = self.get_gridlines(self.get_bounds(self.x), self.get_bounds(self.y), grid_dir=direction)
+      grid = self.get_gridlines(xbounds, ybounds, grid_dir=direction)
       for grid_x, grid_y, pt in grid:
         grid_x, grid_y = self.squigglify(grid_x, grid_y, noise_strength=0.05)
-        args = {'c': 'black', 'linewidth': 2} if np.isclose(pt, 0, atol=0.01) else \
-          {'c': "grey", 'linewidth': 1, 'linestyle': '--', 'alpha': 0.5}
-        a, b = (grid_x, grid_y) if direction == 'x' else (grid_y, grid_x)
-        plt.plot(a, b, **args)
+        args = BLACK_AXIS if np.isclose(pt, 0 if direction == 'x' else self.xx[0], atol=0.01) else GREY_AXIS
+        tick_idxs = np.where(np.abs(grid_x) < delx)[0] if direction == 'x' else\
+          np.where(np.abs(grid_x) < dely)[0]
 
-    csfont = {'fontname': 'xkcd Script', 'fontsize': 30}
-    hfont = {'fontname': 'xkcd Script'}
-    plt.title('title', **csfont)
-    plt.xlabel('xlabel', **hfont)
+        mini_grid_x, mini_grid_y = grid_x[tick_idxs], grid_y[tick_idxs]
+        a, b = (grid_x, grid_y) if direction == 'x' else (grid_y, grid_x)
+        mini_a, mini_b = (mini_grid_x, mini_grid_y) if direction == 'x' else (mini_grid_y, mini_grid_x)
+
+        plt.plot(a, b, **args)
+        plt.plot(mini_a, mini_b, **BLACK_AXIS)
+        plt.text(
+          self.xx[0] - delx * 3 if direction == 'x' else pt,
+          pt if direction == 'x' else - dely * 5,
+          str(round(pt, 1)) if (self.xtype == 'val' or direction == 'x') else datetime.fromtimestamp(pt).strftime("%b, %Y"),
+          horizontalalignment="center",
+          # rotation="horizontal" if direction == 'x' else "vertical",
+          fontsize=20,
+          fontname=FONT
+        )
+
+    title_font = {'fontname': FONT, 'fontsize': 30}
+    plt.title(self.title, **title_font)
     plt.axis('off')
     plt.show()
