@@ -12,6 +12,7 @@ GREY_AXIS = {'c': "grey", 'linewidth': 1, 'linestyle': '--', 'alpha': 0.5}
 class SquigglyBase:
   def __init__(self, figsize=(20, 10)):
     self.fig, self.ax = plt.subplots(figsize=figsize)
+    self.lines = []
 
   def get_bounds(self, x):
     return min(x), max(x)
@@ -56,14 +57,16 @@ class SquigglyPlot(SquigglyBase):
   def __init__(self, figsize=(20, 10)):
     super().__init__(figsize)
 
-  def draw_line(self, x, y, **kwargs):
+  def draw_line(self, x, y, save_line=True, dx_perc=0.1, noise_strength=0.5, autocorr_perc=5, linewidth=3, alpha=0.5, **kwargs):
     assert ((len(x) > 3) and (len(y) > 3)), "Not enough x/y points!"
     assert (len(x) == len(y)), "len(x) != len(y)"
     x = np.array(x)
     y = np.array(y)
     xx = np.array([ele.timestamp() if isinstance(ele, datetime) else ele for ele in x])
-    sqx, sqy = self.squigglify(xx, y)
-    self.ax.plot(sqx, sqy, alpha=0.5, linewidth=3, **kwargs)
+    sqx, sqy = self.squigglify(xx, y, dx_perc, noise_strength, autocorr_perc)
+    line = self.ax.plot(sqx, sqy, alpha=alpha, linewidth=linewidth, **kwargs)
+    if save_line:
+      self.lines.append(line[0])
 
   def draw_grid(self, xbounds, ybounds):
     xtype = 'datetime' if isinstance(xbounds[0], datetime) else 'val'
@@ -100,3 +103,20 @@ class SquigglyPlot(SquigglyBase):
   def draw_title(self, title):
     title_font = {'fontname': FONT, 'fontsize': 30}
     self.fig.suptitle(title, **title_font)
+
+  def draw_annotations(self, linexbound, lineybound, textxy, text):
+    linexbound = [ele.timestamp() if isinstance(linexbound[0], datetime) else ele for ele in linexbound]
+    textxy = [a.timestamp() if isinstance(a, datetime) else a for a in textxy]
+    x = np.linspace(linexbound[0], linexbound[-1], 20)
+    y = np.geomspace(1, lineybound[-1] - lineybound[0] + 1, 20) + lineybound[0] - 1
+    self.draw_line(x, y, save_line=False, noise_strength=0.1, c='black', linewidth=1, alpha=1)
+    self.ax.text(textxy[0], textxy[1], text, fontsize=20, fontname=FONT)
+
+# def draw_legend(self, xbounds, ybounds):
+  #   xrange = self.get_range(*xbounds)
+  #   line_len = AXIS_DX_PERC * xrange / 100
+  #   line_len = timedelta(line_len) if isinstance(xbounds[0], datetime) else line_len
+  #   for ele, line in enumerate(self.lines):
+  #     legendx = np.arange(xbounds[0], xbounds[0] + 5 * line_len, line_len)
+  #     self.draw_line(legendx, np.ones_like(legendx) * (ybounds[0] - ele * 2 * line_len), save_line=False, noise_strength=0.1, c=line._color)
+  #     self.ax.text(legendx[-1], ybounds[0] - ele * 2 * line_len, line._label, verticalalignment="center")
