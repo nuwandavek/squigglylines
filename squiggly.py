@@ -68,15 +68,17 @@ class SquigglyPlot(SquigglyBase):
   def draw_grid(self, xbounds, ybounds):
     xtype = 'datetime' if isinstance(xbounds[0], datetime) else 'val'
     xbounds = [ele.timestamp() if xtype == 'datetime' else ele for ele in xbounds]
-
+    xorigin = 0 if xtype == 'val' else xbounds[0]
+    yorigin = 0 if ybounds[0] <= 0 <= ybounds[1] else ybounds[0]
     delx, dely = self.get_range(*xbounds) * AXIS_DX_PERC / 100, self.get_range(*ybounds) * AXIS_DX_PERC / 100
+
     for direction in ['x', 'y']:
       grid = self.get_gridlines(xbounds, ybounds, grid_dir=direction)
       for grid_x, grid_y, pt in grid:
         grid_x, grid_y = self.squigglify(grid_x, grid_y, noise_strength=0.05)
         args = BLACK_AXIS if np.isclose(pt, 0 if direction == 'x' else xbounds[0], atol=0.01) else GREY_AXIS
-        tick_idxs = np.where(np.abs(grid_x) < delx)[0] if direction == 'x' else\
-          np.where(np.abs(grid_x) < dely)[0]
+        tick_idxs = np.where(((xorigin - delx) <= grid_x) * (grid_x <= (xorigin + delx)))[0] if direction == 'x' else\
+          np.where(((yorigin - dely) <= grid_x) * (grid_x <= (yorigin + dely)))[0]
 
         mini_grid_x, mini_grid_y = grid_x[tick_idxs], grid_y[tick_idxs]
         a, b = (grid_x, grid_y) if direction == 'x' else (grid_y, grid_x)
