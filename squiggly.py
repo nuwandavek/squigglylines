@@ -68,7 +68,7 @@ class SquigglyPlot(SquigglyBase):
     if save_line:
       self.lines.append(line[0])
 
-  def draw_grid(self, xbounds, ybounds):
+  def draw_grid(self, xbounds, ybounds, legend=False):
     xtype = 'datetime' if isinstance(xbounds[0], datetime) else 'val'
     xbounds = [ele.timestamp() if xtype == 'datetime' else ele for ele in xbounds]
     xorigin = 0 if xtype == 'val' else xbounds[0]
@@ -99,24 +99,22 @@ class SquigglyPlot(SquigglyBase):
           fontname=FONT
         )
     self.ax.axis('off')
+    if legend:
+      xlim = xbounds[0] + 5 * delx
+      ylim = ybounds[0] - 5 * dely
+      for ele, line in enumerate(self.lines):
+        eley = ylim - 8 * ele * dely
+        self.draw_annotations([xbounds[0] + delx, xlim], [eley, eley],
+                              [xlim + 1.2 * delx, eley], line._label, c=line._color)
 
   def draw_title(self, title):
     title_font = {'fontname': FONT, 'fontsize': 30}
     self.fig.suptitle(title, **title_font)
 
-  def draw_annotations(self, linexbound, lineybound, textxy, text):
+  def draw_annotations(self, linexbound, lineybound, textxy, text, c='black', linewidth=1, alpha=1):
     linexbound = [ele.timestamp() if isinstance(linexbound[0], datetime) else ele for ele in linexbound]
     textxy = [a.timestamp() if isinstance(a, datetime) else a for a in textxy]
     x = np.linspace(linexbound[0], linexbound[-1], 20)
     y = np.geomspace(1, lineybound[-1] - lineybound[0] + 1, 20) + lineybound[0] - 1
-    self.draw_line(x, y, save_line=False, noise_strength=0.1, c='black', linewidth=1, alpha=1)
-    self.ax.text(textxy[0], textxy[1], text, fontsize=20, fontname=FONT)
-
-# def draw_legend(self, xbounds, ybounds):
-  #   xrange = self.get_range(*xbounds)
-  #   line_len = AXIS_DX_PERC * xrange / 100
-  #   line_len = timedelta(line_len) if isinstance(xbounds[0], datetime) else line_len
-  #   for ele, line in enumerate(self.lines):
-  #     legendx = np.arange(xbounds[0], xbounds[0] + 5 * line_len, line_len)
-  #     self.draw_line(legendx, np.ones_like(legendx) * (ybounds[0] - ele * 2 * line_len), save_line=False, noise_strength=0.1, c=line._color)
-  #     self.ax.text(legendx[-1], ybounds[0] - ele * 2 * line_len, line._label, verticalalignment="center")
+    self.draw_line(x, y, save_line=False, noise_strength=0.1, c=c, linewidth=linewidth, alpha=alpha)
+    self.ax.text(textxy[0], textxy[1], text, fontsize=20, fontname=FONT, verticalalignment="center")
