@@ -63,7 +63,7 @@ class SquigglyPlot(SquigglyBase):
   def __init__(self, figsize=(20, 10)):
     super().__init__(figsize)
 
-  def draw_line(self, x, y, save_line=True, dx_perc=0.1, noise_strength=0.5, autocorr_perc=5, linewidth=3, alpha=0.5, **kwargs):
+  def draw_line(self, x, y, save_line=True, dx_perc=0.1, noise_strength=0.5, autocorr_perc=5, linewidth=3, alpha=0.75, **kwargs):
     assert ((len(x) > 3) and (len(y) > 3)), "Not enough x/y points!"
     assert (len(x) == len(y)), "len(x) != len(y)"
     x = np.array(x)
@@ -88,7 +88,7 @@ class SquigglyPlot(SquigglyBase):
                                          else 0.05 * self.get_range(*ybounds))
         args = BLACK_AXIS if np.isclose(pt, 0 if direction == 'x' else xbounds[0], atol=0.01) else GREY_AXIS
         tick_idxs = np.where(((xorigin - delx) <= grid_x) * (grid_x <= (xorigin + delx)))[0] if direction == 'x' else\
-          np.where(((yorigin - dely) <= grid_x) * (grid_x <= (yorigin + dely)))[0]
+          np.where(((yorigin - 2 * dely) <= grid_x) * (grid_x <= (yorigin + 2 * dely)))[0]
 
         mini_grid_x, mini_grid_y = grid_x[tick_idxs], grid_y[tick_idxs]
         a, b = (grid_x, grid_y) if direction == 'x' else (grid_y, grid_x)
@@ -98,7 +98,7 @@ class SquigglyPlot(SquigglyBase):
         self.ax.plot(mini_a, mini_b, **BLACK_AXIS)
         self.ax.text(
           xbounds[0] - delx * 3 if direction == 'x' else pt,
-          pt if direction == 'x' else - dely * 5,
+          pt if direction == 'x' else - dely * 8,
           str(round(pt, 1)) if (xtype == 'val' or direction == 'x') else datetime.fromtimestamp(pt).strftime("%b, %Y"),
           horizontalalignment="center",
           # rotation="horizontal" if direction == 'x' else "vertical",
@@ -110,18 +110,23 @@ class SquigglyPlot(SquigglyBase):
       xlim = xbounds[0] + 10 * delx
       ylim = ybounds[0] - 5 * dely
       for ele, line in enumerate(self.lines):
-        eley = ylim - 8 * (ele + 1) * dely
+        eley = ylim - 10 * (ele + 2) * dely
         self.draw_annotations([xbounds[0] + delx, xlim], [eley, eley],
-                              [xlim + 1.2 * delx, eley], line._label, c=line._color, alpha=0.5, linewidth=3, noise_strength=0.02)
+                              [xlim + 1.2 * delx, eley], line._label, c=line._color, alpha=0.75, linewidth=3, noise_strength=0.02, textbg=False)
 
   def draw_title(self, title):
     title_font = {'fontname': FONT, 'fontsize': 30}
     self.fig.suptitle(title, **title_font)
+    self.fig.tight_layout()
 
-  def draw_annotations(self, linexbound, lineybound, textxy, text, c='black', linewidth=1, alpha=1, noise_strength=0.1):
-    linexbound = [ele.timestamp() if isinstance(linexbound[0], datetime) else ele for ele in linexbound]
-    textxy = [a.timestamp() if isinstance(a, datetime) else a for a in textxy]
-    x = np.linspace(linexbound[0], linexbound[-1], 20)
-    y = np.geomspace(1, lineybound[-1] - lineybound[0] + 1, 20) + lineybound[0] - 1
-    self.draw_line(x, y, save_line=False, noise_strength=noise_strength, c=c, linewidth=linewidth, alpha=alpha)
-    self.ax.text(textxy[0], textxy[1], text, fontsize=20, fontname=FONT, verticalalignment="center")
+  def draw_annotations(self, linexbound, lineybound, textxy, text, c='black', linewidth=1, alpha=1, noise_strength=0.1, textbg=True, fontsize=20):
+    if len(linexbound) and len(lineybound):
+      linexbound = [ele.timestamp() if isinstance(linexbound[0], datetime) else ele for ele in linexbound]
+      x = np.linspace(linexbound[0], linexbound[-1], 20)
+      y = np.geomspace(1, lineybound[-1] - lineybound[0] + 1, 20) + lineybound[0] - 1
+      self.draw_line(x, y, save_line=False, noise_strength=noise_strength, c=c, linewidth=linewidth, alpha=alpha)
+    if len(textxy) and text != "":
+      textxy = [a.timestamp() if isinstance(a, datetime) else a for a in textxy]
+      t = self.ax.text(textxy[0], textxy[1], text, fontsize=fontsize, fontname=FONT, verticalalignment="center")
+      if textbg:
+        t.set_bbox(dict(facecolor='#ddd', alpha=0.8, edgecolor='#eee', boxstyle="Round"))
