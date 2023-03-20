@@ -20,22 +20,28 @@ class SquigglyBase:
   def get_range(self, xmin, xmax):
     return xmax - xmin
 
-  def squigglify(self, x, y, dx_perc=0.1, noise_strength=0.5, autocorr_perc=5):
-    xmin, xmax = self.get_bounds(x)
-    xrange = self.get_range(xmin, xmax)
-    dx = xrange * dx_perc / 100
-    new_x = np.arange(xmin, xmax + dx, dx)
-    new_y = np.interp(new_x, x, y)
-    noise = np.random.normal(0, noise_strength, len(new_y))
-    new_y = new_y + noise
-
+  def smooth(self, new_x, new_y, autocorr_perc):
     autocorr_window = int(len(new_x) * autocorr_perc / 100)
     smoother = np.ones(autocorr_window)
     new_y = np.convolve(new_y, smoother, 'same')
     new_y_denom = np.ones_like(new_y) * autocorr_window
     new_y_denom[:autocorr_window // 2] = np.arange(autocorr_window // 2, autocorr_window)
     new_y_denom[-autocorr_window // 2:] = np.arange(autocorr_window // 2, autocorr_window)[::-1] + 1
-    return new_x, new_y / new_y_denom
+    new_y /= new_y_denom
+    return new_y
+
+  def squigglify(self, x, y, dx_perc=0.1, noise_strength=0.5, autocorr_perc=5):
+    xmin, xmax = self.get_bounds(x)
+    xrange = self.get_range(xmin, xmax)
+    dx = xrange * dx_perc / 100
+    new_x = np.arange(xmin, xmax + dx, dx)
+    new_y = np.interp(new_x, x, y)
+    noisey = np.random.normal(0, noise_strength, len(new_y))
+    new_y = new_y + noisey
+
+    new_y = self.smooth(new_x, new_y, autocorr_perc)
+
+    return new_x, new_y
 
   def get_gridlines(self, x_bounds, y_bounds, nticks=5, extend_perc=0.03, grid_dir='x', dx_perc=0.1):
     xrange = self.get_range(*x_bounds)
@@ -78,7 +84,8 @@ class SquigglyPlot(SquigglyBase):
     for direction in ['x', 'y']:
       grid = self.get_gridlines(xbounds, ybounds, grid_dir=direction)
       for grid_x, grid_y, pt in grid:
-        grid_x, grid_y = self.squigglify(grid_x, grid_y, noise_strength=0.05)
+        grid_x, grid_y = self.squigglify(grid_x, grid_y, noise_strength=0.005 * self.get_range(*xbounds) if direction == 'y'
+                                         else 0.05 * self.get_range(*ybounds))
         args = BLACK_AXIS if np.isclose(pt, 0 if direction == 'x' else xbounds[0], atol=0.01) else GREY_AXIS
         tick_idxs = np.where(((xorigin - delx) <= grid_x) * (grid_x <= (xorigin + delx)))[0] if direction == 'x' else\
           np.where(((yorigin - dely) <= grid_x) * (grid_x <= (yorigin + dely)))[0]
@@ -100,21 +107,21 @@ class SquigglyPlot(SquigglyBase):
         )
     self.ax.axis('off')
     if legend:
-      xlim = xbounds[0] + 5 * delx
+      xlim = xbounds[0] + 10 * delx
       ylim = ybounds[0] - 5 * dely
       for ele, line in enumerate(self.lines):
-        eley = ylim - 8 * ele * dely
+        eley = ylim - 8 * (ele + 1) * dely
         self.draw_annotations([xbounds[0] + delx, xlim], [eley, eley],
-                              [xlim + 1.2 * delx, eley], line._label, c=line._color, alpha=0.5)
+                              [xlim + 1.2 * delx, eley], line._label, c=line._color, alpha=0.5, linewidth=3, noise_strength=0.02)
 
   def draw_title(self, title):
     title_font = {'fontname': FONT, 'fontsize': 30}
     self.fig.suptitle(title, **title_font)
 
-  def draw_annotations(self, linexbound, lineybound, textxy, text, c='black', linewidth=1, alpha=1):
+  def draw_annotations(self, linexbound, lineybound, textxy, text, c='black', linewidth=1, alpha=1, noise_strength=0.1):
     linexbound = [ele.timestamp() if isinstance(linexbound[0], datetime) else ele for ele in linexbound]
     textxy = [a.timestamp() if isinstance(a, datetime) else a for a in textxy]
     x = np.linspace(linexbound[0], linexbound[-1], 20)
     y = np.geomspace(1, lineybound[-1] - lineybound[0] + 1, 20) + lineybound[0] - 1
-    self.draw_line(x, y, save_line=False, noise_strength=0.1, c=c, linewidth=linewidth, alpha=alpha)
+    self.draw_line(x, y, save_line=False, noise_strength=noise_strength, c=c, linewidth=linewidth, alpha=alpha)
     self.ax.text(textxy[0], textxy[1], text, fontsize=20, fontname=FONT, verticalalignment="center")
