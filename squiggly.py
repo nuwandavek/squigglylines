@@ -11,7 +11,7 @@ GREY_AXIS = {'c': "grey", 'linewidth': 1, 'linestyle': '--', 'alpha': 0.5}
 
 class SquigglyBase:
   def __init__(self, figsize=(20, 10)):
-    self.fig, self.ax = plt.subplots(figsize=figsize)
+    self.fig, self.ax = plt.subplots(figsize=figsize, facecolor="white")
     self.lines = []
 
   def get_bounds(self, x):
